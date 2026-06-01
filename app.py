@@ -19,41 +19,23 @@ def home():
 def test():
     try:
         r = requests.get(f"{UPSTOX_BASE}/user/profile", headers=headers(), timeout=10)
-        if r.status_code == 200:
-            d = r.json().get("data", {})
-            return jsonify({"ok": True, "name": d.get("user_name", ""), "email": d.get("email", "")})
-        return jsonify({"ok": False, "error": r.text}), 400
+        return jsonify({"ok": r.status_code == 200, "status": r.status_code, "body": r.text[:500]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/signals")
 def signals():
-    keys = [
-        "NSE_INDEX|Nifty 50",
-        "NSE_INDEX|Nifty Bank",
-        "MCX_FO|GOLD25JUNFUT"
-    ]
+    key = request.args.get("key", "NSE_INDEX|Nifty 50")
     try:
         r = requests.get(
             f"{UPSTOX_BASE}/market-quote/ltp",
             headers=headers(),
-            params={"instrument_key": ",".join(keys)},
+            params={"instrument_key": key},
             timeout=10
         )
-        if r.status_code != 200:
-            return jsonify({"ok": False, "error": r.text}), 400
-        data = r.json().get("data", {})
-        result = []
-        for k, v in data.items():
-            lp = v.get("last_price", 0)
-            result.append({
-                "instrument": k.split("|")[-1],
-                "ltp": lp,
-                "signal": "BUY" if lp else "WAIT"
-            })
-        return jsonify({"ok": True, "signals": result})
+        return jsonify({"ok": r.status_code == 200, "status": r.status_code, "body": r.text[:1000], "key": key})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e), "key": key}), 500
 
 @app.route("/api/place-order", methods=["POST"])
 def place_order():
@@ -80,19 +62,15 @@ def place_order():
             json=payload,
             timeout=10
         )
-        return jsonify(r.json())
+        return jsonify({"ok": r.status_code in (200, 201), "status": r.status_code, "body": r.text[:1000]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/positions")
 def positions():
     try:
-        r = requests.get(
-            f"{UPSTOX_BASE}/portfolio/short-term-positions",
-            headers=headers(),
-            timeout=10
-        )
-        return jsonify(r.json())
+        r = requests.get(f"{UPSTOX_BASE}/portfolio/short-term-positions", headers=headers(), timeout=10)
+        return jsonify({"ok": r.status_code == 200, "status": r.status_code, "body": r.text[:1000]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
